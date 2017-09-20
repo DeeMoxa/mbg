@@ -120,11 +120,9 @@ public class ServiceGeneratorPlugin extends SuperMapperGeneratorPlugin {
 			stringBuilder.append("import ").append(primaryKeyType).append(";").append(System.lineSeparator());
 		}
 		for(String superClass : superInterfaces){
-		stringBuilder.append(System.lineSeparator())
-					 .append("import ").append(superClass).append(";").append(System.lineSeparator())
-					 .append(System.lineSeparator());
+		stringBuilder.append("import ").append(superClass).append(";").append(System.lineSeparator());
 		}
-		stringBuilder.append("public interface ").append(shortClassName(baseRecordType)).append("Service extends ");
+		stringBuilder.append(System.lineSeparator()).append("public interface ").append(shortClassName(baseRecordType)).append("Service extends ");
 		for(int i = 0; i < superInterfaces.size(); i ++){
 			
 		stringBuilder.append(shortClassName(superInterfaces.get(i)))

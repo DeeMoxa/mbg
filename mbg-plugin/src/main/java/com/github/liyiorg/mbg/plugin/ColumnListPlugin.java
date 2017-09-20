@@ -1,7 +1,10 @@
 package com.github.liyiorg.mbg.plugin;
 
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.mybatis.generator.api.IntrospectedColumn;
@@ -18,6 +21,7 @@ import org.mybatis.generator.api.dom.xml.Attribute;
 import org.mybatis.generator.api.dom.xml.Element;
 import org.mybatis.generator.api.dom.xml.TextElement;
 import org.mybatis.generator.api.dom.xml.XmlElement;
+import org.mybatis.generator.internal.util.StringUtility;
 
 import com.github.liyiorg.mbg.util.TopLevelClassUtil;
 
@@ -32,6 +36,25 @@ import com.github.liyiorg.mbg.util.TopLevelClassUtil;
 public class ColumnListPlugin extends PluginAdapter {
 	
 	private static final String TYPE_NAME = "_T_Y_P_E_";
+	
+	private final static String REMARKS_PROPERTY_NAME = "remarks";
+	
+	private static String DEFAULT_REMARKS;
+
+	private String remarks;
+	
+
+	@Override
+	public void initialized(IntrospectedTable introspectedTable) {
+		DEFAULT_REMARKS = properties.getProperty(REMARKS_PROPERTY_NAME, "1");
+		String remarks_pro = introspectedTable.getTableConfiguration().getProperty(REMARKS_PROPERTY_NAME);
+		if (StringUtility.stringHasValue(remarks_pro)) {
+			remarks = remarks_pro;
+		} else {
+			remarks = DEFAULT_REMARKS;
+		}
+		
+	}
 	
 	@Override
 	public boolean modelExampleClassGenerated(TopLevelClass topLevelClass, IntrospectedTable introspectedTable) {
@@ -90,16 +113,34 @@ public class ColumnListPlugin extends PluginAdapter {
 		InnerEnum innerEnum_C = new InnerEnum(new FullyQualifiedJavaType("C"));
 		innerEnum_C.setVisibility(JavaVisibility.PUBLIC);
 		innerEnum_C.setStatic(true);
-		for (String column : primaryKeyColumns) {
-			innerEnum_C.addEnumConstant(column + "(1)");
+		
+		//添加构造项
+		Map<String, String> constantMap = new LinkedHashMap<String, String>();
+		buildEnumConstant(constantMap, introspectedTable.getPrimaryKeyColumns(), innerEnum_C, 1);
+		buildEnumConstant(constantMap, introspectedTable.getBaseColumns(), innerEnum_C, 2);
+		buildEnumConstant(constantMap, introspectedTable.getBLOBColumns(), innerEnum_C, 3);
+		
+		StringBuilder stringBuilder = new StringBuilder();
+		// 添加表注释
+		if(!"0".equals(remarks)){
+			stringBuilder.append("//--------------------------------------------------")
+			.append(System.lineSeparator())
+			.append("\t\t//[").append(introspectedTable.getTableType()).append("]");
+			if (StringUtility.stringHasValue(introspectedTable.getRemarks())) {
+				stringBuilder.append("\t").append(introspectedTable.getRemarks());
+			}
+			stringBuilder.append(System.lineSeparator())
+			.append("\t\t//--------------------------------------------------");
 		}
-		for (String column : baseColumns) {
-			innerEnum_C.addEnumConstant(column + "(2)");
+		
+		switch (remarks) {
+		case "0":
+			buildRemarksType0(innerEnum_C, stringBuilder, constantMap);
+			break;
+		default:
+			buildRemarksType1(innerEnum_C, stringBuilder, constantMap);
 		}
-		for (String column : bLOBColumns) {
-			innerEnum_C.addEnumConstant(column + "(3)");
-		}
-
+		
 		Field field_type = new Field(TYPE_NAME, new FullyQualifiedJavaType("int"));
 		field_type.setVisibility(JavaVisibility.PRIVATE);
 		field_type.setFinal(true);
@@ -156,7 +197,7 @@ public class ColumnListPlugin extends PluginAdapter {
 		method.addBodyLine("if (cs != null) {");
 			method.addBodyLine("for (C c : cs) {");
 				method.addBodyLine("switch (c.getValue()) {");
-				method.addBodyLine("case 1:");
+				method.addBodyLine("case 1: ");
 				method.addBodyLine("case 2:");
 					method.addBodyLine("if(baseSet == null){");
 						method.addBodyLine("baseSet = new LinkedHashSet<C>();");
@@ -197,13 +238,13 @@ public class ColumnListPlugin extends PluginAdapter {
 		method.addBodyLine("Base_Column_List = null;");
 		if(blob){
 		method.addBodyLine("Set<C> blobSet = new LinkedHashSet<C>();");
-		method.addBodyLine("baseSet.addAll(defaultBLOBColumns);");
+		method.addBodyLine("blobSet.addAll(defaultBLOBColumns);");
 		method.addBodyLine("Blob_Column_List = null;");
 		}
 		method.addBodyLine("if (cs != null) {");
 			method.addBodyLine("for (C c : cs) {");
 				method.addBodyLine("switch (c.getValue()) {");
-				method.addBodyLine("case 1:");
+				method.addBodyLine("case 1: ");
 				method.addBodyLine("case 2:");
 					method.addBodyLine("baseSet.remove(c);");
 					method.addBodyLine("break;");
@@ -296,8 +337,128 @@ public class ColumnListPlugin extends PluginAdapter {
 		}
 	}
 	
+	private void buildRemarksType0(InnerEnum innerEnum_C, StringBuilder stringBuilder,
+			Map<String, String> constantMap) {
+		Iterator<String> iterator = constantMap.keySet().iterator();
+		while (iterator.hasNext()) {
+			String key = iterator.next();
+			stringBuilder.append(System.lineSeparator()).append("\t\t");
+			stringBuilder.append(key);
+			if (iterator.hasNext()) {
+				stringBuilder.append(",");
+			} 
+		}
+		innerEnum_C.addEnumConstant(stringBuilder.toString());
+	}
+	
+	private void buildRemarksType1(InnerEnum innerEnum_C, StringBuilder stringBuilder,
+			Map<String, String> constantMap) {
+		try {
+			int maxTabs = maxTabs(constantMap.values().toArray(),7);
+			if(maxTabs > 10){
+				maxTabs = 10;
+			}
+			Iterator<String> iterator = constantMap.keySet().iterator();
+			while (iterator.hasNext()) {
+				String key = iterator.next();
+				String columnRemark = constantMap.get(key);
+				boolean hasRemark = StringUtility.stringHasValue(columnRemark);
+				String rm = "\t\t\t";
+				if(hasRemark){
+					stringBuilder.append(System.lineSeparator());
+					rm = "/** " + columnRemark + " */";
+				}
+				stringBuilder.append("\t\t");
+				String brm = "";
+				if(hasRemark && rm.length() <= 40){
+					brm = columnRemark;
+				}else{
+					rm += System.lineSeparator() + "\t\t\t";
+				}
+				stringBuilder.append(rm).append(buildTabs(brm, maxTabs,7)).append(key);
+				if (iterator.hasNext()) {
+					stringBuilder.append(",");
+				} 
+			}
+			innerEnum_C.addEnumConstant(stringBuilder.toString());
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * 生成构造项
+	 * @param map map
+	 * @param introspectedColumns introspectedColumns
+	 * @param innerEnum_C innerEnum_C
+	 * @param type [1,2,3]
+	 */
+	private void buildEnumConstant(Map<String,String> map,List<IntrospectedColumn> introspectedColumns, InnerEnum innerEnum_C, int type) {
+		for (IntrospectedColumn column : introspectedColumns) {
+			String columnRemark = null;
+			if (StringUtility.stringHasValue(column.getRemarks())) {
+				columnRemark = column.getRemarks();
+			}
+			
+			if(StringUtility.stringHasValue(column.getDefaultValue())){
+				if(columnRemark == null){
+					columnRemark = "[DV=>" + column.getDefaultValue() + "]";
+				}else{
+					columnRemark += " [DV=>" + column.getDefaultValue() + "]";
+				}
+			}
+			String key = String.format("%s(%d)", column.getActualColumnName(), type);
+			map.put(key, columnRemark);
+		}
+	}
+
 	public boolean validate(List<String> warnings) {
 		return true;
+	}
+
+	
+	/**
+	 * 计算格式化输出注释的最大key tab length
+	 * @param keys keys
+	 * @return maxTabs
+	 */
+	private int maxTabs(Object[] keys, int a) {
+		int maxLengthKey = 0;
+		for (int i = 0; i < keys.length; i++) {
+			Object key = keys[i];
+			if (key != null) {
+				String keystr = key.toString().replaceAll("[^\\x00-\\xff]", "  ");
+				if (keystr.length() > maxLengthKey) {
+					maxLengthKey = keystr.length();
+				}
+			}
+		}
+		return (maxLengthKey + a) / 4 + ((maxLengthKey + a) % 4 == 0 ? 0 : 1);
+	}
+
+	/**
+	 * 计算格式化输出注释的预留空白
+	 * @param key key
+	 * @param maxTabs maxTabs
+	 * @return \t ...
+	 */
+	private static String buildTabs(String key, int maxTabs,int a) {
+		key = key.replaceAll("[^\\x00-\\xff]", "  ");
+		int keyLength =  key.length();
+		int r = (keyLength + a) / 4; 
+		int l = maxTabs - r + 1;
+		StringBuilder stringBuilder = new StringBuilder();
+		for (int i = 0; i < l; i++) {
+			stringBuilder.append("\t");
+		}
+		return stringBuilder.toString();
+	}
+	
+	public static void main(String[] args) {
+		String key = "省份名称a";
+		String a = buildTabs(key, 3, 7);
+		System.out.println(a);
 	}
 
 	

@@ -12,6 +12,7 @@ import org.mybatis.generator.api.dom.java.Method;
 import org.mybatis.generator.api.dom.java.TopLevelClass;
 import org.mybatis.generator.api.dom.xml.Attribute;
 import org.mybatis.generator.api.dom.xml.XmlElement;
+import org.mybatis.generator.internal.util.StringUtility;
 import org.mybatis.generator.logging.Log;
 import org.mybatis.generator.logging.LogFactory;
 
@@ -36,24 +37,16 @@ public class SuperMapperGeneratorPlugin extends PluginAdapter {
 	
 	private static final String MbgUpdateMapperClass = "com.github.liyiorg.mbg.support.mapper.MbgUpdateMapper";
 	
-	private static final String P_readonlyTables  = "readonlyTables";
-	
 	protected boolean readonly;
 	
 	@Override
 	public void initialized(IntrospectedTable introspectedTable) {
-		String readonlyTables = properties.getProperty(P_readonlyTables);
-		String tableName = introspectedTable.getTableConfiguration().getTableName();
-		readonly = false;
-		if(readonlyTables != null){
-			for(String rtableName : readonlyTables.split(",")){
-				if(rtableName.trim().equals(tableName)){
-					readonly = true;
-					break;
-				}
-			}
+		if ("VIEW".equalsIgnoreCase(introspectedTable.getTableType())) {
+			readonly = true;
+		} else {
+			String readonly_pro = introspectedTable.getTableConfiguration().getProperty("readonly");
+			readonly = StringUtility.isTrue(readonly_pro);
 		}
-		super.initialized(introspectedTable);
 	}
 
 	@Override

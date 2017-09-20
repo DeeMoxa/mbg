@@ -3,6 +3,7 @@ package com.github.liyiorg.mbg.support.service;
 import java.lang.reflect.Proxy;
 import java.util.List;
 
+import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.apache.ibatis.executor.BatchResult;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
@@ -176,7 +177,8 @@ public abstract class MbgServiceSupport<Model, Example, PrimaryKey> implements
 	 * @return
 	 */
 	protected int[] batchExec(String statements, Object[] params) {
-		return batchExec(new String[] { statements }, params);
+		List<BatchResult> list = batchExec(new String[] { statements }, params, true);
+		return list.get(0).getUpdateCounts();
 	}
 
 	/**
@@ -189,7 +191,7 @@ public abstract class MbgServiceSupport<Model, Example, PrimaryKey> implements
 	 *            POJO,MAP
 	 * @return
 	 */
-	protected int[] batchExec(String[] statements, Object[] params) {
+	protected List<BatchResult> batchExec(String[] statements, Object[] params,boolean oneResult) {
 		SqlSession sqlSession = null;
 		try {
 			sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH);
@@ -250,12 +252,11 @@ public abstract class MbgServiceSupport<Model, Example, PrimaryKey> implements
 			}
 
 			List<BatchResult> list = sqlSession.flushStatements();
-			int[] updateCount = new int[list.size()];
-			int i = 0;
-			for (BatchResult batchResult : list) {
-				updateCount[i++] = batchResult.getUpdateCounts()[0];
+			if (oneResult && list.size() != 1) {
+				throw new TooManyResultsException("Batch execution returned invalid results. "
+						+ "Expected 1 but number of BatchResult objects returned was " + list.size());
 			}
-			return updateCount;
+			return list;
 		} finally {
 			if (sqlSession != null) {
 				sqlSession.close();

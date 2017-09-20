@@ -17,15 +17,13 @@ generatorConfiguration &gt; context
 <plugin type="com.github.liyiorg.mbg.plugin.ColumnListPlugin"></plugin>
 
 <!-- Service generator plugin -->
-<plugin type="com.github.liyiorg.mbg.plugin.ServiceGeneratorPlugin">
-	<!-- <property name="readonlyTables" value="table1,table2"/> -->
-</plugin>
+<plugin type="com.github.liyiorg.mbg.plugin.ServiceGeneratorPlugin"></plugin>
 
 <!-- pom.xml -->
 <dependency>
 	<groupId>com.github.liyiorg</groupId>
 	<artifactId>mbg-support</artifactId>
-	<version>1.0.0-RC1</version>
+	<version>1.0.0-RC2</version>
 </dependency>
 
 
@@ -52,7 +50,7 @@ generatorConfiguration &gt; context
 					<dependency>
 						<groupId>com.github.liyiorg</groupId>
 						<artifactId>mbg-plugin</artifactId>
-						<version>1.0.0-RC1</version>
+						<version>1.0.0-RC2</version>
 					</dependency>
 				</dependencies>
 			</plugin>
