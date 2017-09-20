@@ -46,7 +46,7 @@ public class ColumnListPlugin extends PluginAdapter {
 
 	@Override
 	public void initialized(IntrospectedTable introspectedTable) {
-		DEFAULT_REMARKS = properties.getProperty(REMARKS_PROPERTY_NAME, "1");
+		DEFAULT_REMARKS = properties.getProperty(REMARKS_PROPERTY_NAME, "0");
 		String remarks_pro = introspectedTable.getTableConfiguration().getProperty(REMARKS_PROPERTY_NAME);
 		if (StringUtility.stringHasValue(remarks_pro)) {
 			remarks = remarks_pro;
